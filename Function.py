@@ -4,21 +4,26 @@ from Variable import Variable
 
 
 class Function:
-    def __call__(self, input: Variable):
-        x = input.data
-        y = self.forward(x)
-        output = Variable(
+    def __call__(self, *inputs):
+        xs = [x.data for x in inputs]
+        ys = self.forward(*xs)
+        if not isinstance(ys, tuple):
+            ys = (ys,)
+        outputs = [Variable(
             np.array(y) if np.isscalar(y) else y
-        )  # numpy는 0차원 배열에 대한 연산 결과를 스칼라로 반환하므로 이를 다시 numpy 배열로 변환
-        output.set_creator(self)
-        self.input = input
-        self.output = output
-        return output
+        ) for y in ys]  # numpy는 0차원 배열에 대한 연산 결과를 스칼라로 반환하므로 이를 다시 numpy 배열로 변환
 
-    def forward(self, x):
+        for output in outputs:
+            output.set_creator(self)
+        self.inputs = inputs
+        self.outputs = outputs
+
+        return outputs if len(outputs) > 1 else outputs[0]  # 원소가 하나라면 구태여 리스트로 반환할 필요가 없다.
+
+    def forward(self, xs):
         raise NotImplementedError
 
-    def backward(self, gy):
+    def backward(self, gys):
         raise NotImplementedError
 
 
@@ -27,7 +32,7 @@ class Square(Function):
         return x ** 2
 
     def backward(self, gy):
-        x = self.input.data
+        x = self.inputs[0].data
         gx = 2 * x * gy
         return gx
 
@@ -37,9 +42,18 @@ class Exp(Function):
         return np.exp(x)
 
     def backward(self, gy):
-        x = self.input.data
+        x = self.inputs.data
         gx = np.exp(x) * gy
         return gx
+
+
+class Add(Function):
+    def forward(self, x0, x1):
+        y = x0 + x1
+        return y
+
+    def backward(self, gy):
+        return gy, gy
 
 
 def square(x):
@@ -50,3 +64,8 @@ def square(x):
 def exp(x):
     f = Exp()
     return f(x)
+
+
+def add(x0, x1):
+    f = Add()
+    return f(x0, x1)

@@ -17,6 +17,10 @@ class Variable:
             self.grad = np.ones_like(self.data)
         func = self.creator
         while func is not None:
-            x, y = func.input, func.output
-            x.grad = func.backward(y.grad)
-            func = x.creator
+            gys = [output.grad for output in func.outputs]
+            gxs = func.backward(*gys)
+            if not isinstance(gxs, tuple):
+                gxs = (gxs,)
+            for x, gx in zip(func.inputs, gxs):
+                x.grad = gx
+                func = x.creator
